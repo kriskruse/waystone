@@ -13,7 +13,7 @@ jobs:
       run:
         working-directory: brain
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -37,7 +37,7 @@ jobs:
             python python-gobject gtk4 gtk4-layer-shell \
             python-pytest python-opencv python-numpy \
             nodejs npm git xorg-server-xvfb
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       # protocol tests round-trip against a live brain child (tsx dev mode)
       - run: npm ci
         working-directory: brain

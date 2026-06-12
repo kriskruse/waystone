@@ -18,7 +18,7 @@ jobs:
     # gate: each release waits for a manual approve before publishing.
     environment: aur
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: version from tag
         id: ver
@@ -63,7 +63,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           ref: main
       - name: insert version into dropdown

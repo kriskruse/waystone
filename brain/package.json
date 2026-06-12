@@ -13,7 +13,7 @@
   "dependencies": {
     "@sindresorhus/fnv1a": "^3.0.0",
     "@vueuse/core": "^11.0.0",
-    "dot-prop": "9.x.x",
+    "dot-prop": "10.x.x",
     "luxon": "3.x.x",
     "neverthrow": "^8.0.0",
     "object-hash": "^3.0.0",

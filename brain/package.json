@@ -17,13 +17,13 @@
     "luxon": "3.x.x",
     "neverthrow": "^8.0.0",
     "object-hash": "^3.0.0",
-    "vue": "^3.4.0"
+    "vue": "^3.5.38"
   },
   "devDependencies": {
     "@types/luxon": "^3.0.0",
     "@types/node": "^20.0.0",
     "@types/object-hash": "^3.0.0",
-    "esbuild": "^0.24.0",
+    "esbuild": "^0.28.1",
     "typescript": "^5.4.0",
     "tsx": "^4.7.0",
     "vitest": "^2.0.0"

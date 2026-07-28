@@ -23,6 +23,7 @@ Keep this list short — the goal is byte-identical files so upstream re-pulls s
 3. `src/assets/client-string-loader.ts`: 1× same mechanical `import.meta.env.BASE_URL` → `globalThis.EE2_DATA_BASE` replace (the global is a `file://` prefix so the dynamic `import()` of `client_strings.js` resolves as a native Node ESM file import). No logic changes.
 4. `src/web/background/Leagues.ts`: 1× import-path edit `from "./IPC"` → `from "@/web/background/IPC"` (relative import bypassed the tsconfig stub alias). No logic changes.
 5. `src/web/background/Prices.ts`: 2× import-path edits `from "../Config"` → `from "@/web/Config"` and `from "../overlay/widgets"` → `from "@/web/overlay/widgets"` (relative imports bypassed the tsconfig stub aliases). No logic changes.
+6. `src/web/price-check/trade/pathofexile-trade.ts`: backported upstream's dual-shape mod handling — PoE2's trade2 fetch now returns mod blocks as objects (`{ description }`) as well as plain strings; `parseModBlock` unconditionally fed each entry to `parseAffixStrings` → `s.replace is not a function`. Added a `FetchResultMod = string | { description: string }` alias on the 8 `*Mods` fields and a `typeof s === "string"` branch in `parseModBlock`. Superseded on next re-pull by upstream's tier-aware version — drop this patch then.
 
 All other coupling to the EE2 app (`@/web/Config`, `@/web/background/IPC`, `@/web/overlay/*`) is resolved via tsconfig path aliases pointing at stub modules in `brain/src/stubs/` — vendored files are NOT edited for this.
 

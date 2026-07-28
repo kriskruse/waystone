@@ -397,6 +397,10 @@ interface TradeDataRichLine {
   icon?: string;
 }
 
+// PoE2 trade2 fetch returns mod-block entries as either plain strings (legacy)
+// or objects carrying a `description` (current). See parseModBlock.
+type FetchResultMod = string | { description: string };
+
 interface FetchResult {
   id: string;
   item: {
@@ -435,11 +439,11 @@ interface FetchResult {
     properties?: TradeDataRichLine[];
     requirements?: TradeDataRichLine[];
     grantedSkills?: TradeDataRichLine[];
-    implicitMods?: string[];
-    explicitMods?: string[];
-    mutatedMods?: string[];
-    enchantMods?: string[];
-    runeMods?: string[];
+    implicitMods?: FetchResultMod[];
+    explicitMods?: FetchResultMod[];
+    mutatedMods?: FetchResultMod[];
+    enchantMods?: FetchResultMod[];
+    runeMods?: FetchResultMod[];
     extended?: {
       dps?: number;
       pdps?: number;
@@ -458,9 +462,9 @@ interface FetchResult {
       mods?: Record<string, TradeModMetadata[]>;
       hashes?: Record<string, Array<Array<string | number[] | null>>>;
     };
-    pseudoMods?: string[];
-    desecratedMods?: string[];
-    fracturedMods?: string[];
+    pseudoMods?: FetchResultMod[];
+    desecratedMods?: FetchResultMod[];
+    fracturedMods?: FetchResultMod[];
   };
   listing: {
     indexed: string;
@@ -1548,15 +1552,18 @@ function parseMods(result: FetchResult): {
 }
 
 function parseModBlock(
-  translated: string[] | undefined,
+  translated: Array<string | { description: string }> | undefined,
   color: TradeNumberColors = TradeNumberColors.Augmented,
   // mods: TradeModMetadata[] | undefined,
   // hashes: Array<Array<string | number[] | null>> | undefined,
 ): DisplayItemLine[] | undefined {
   // separate function, allow doing complex parsing later if needed
   if (!translated) return undefined;
+  // PoE2 trade2 fetch returns some mod blocks as objects ({ description, ... })
+  // rather than plain strings; handle both shapes (mirrors EE2 upstream).
   return translated.map((s) => {
-    return { text: parseAffixStrings(s), color };
+    const text = typeof s === "string" ? s : s.description;
+    return { text: parseAffixStrings(text), color };
   });
 }
 

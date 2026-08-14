@@ -12,20 +12,20 @@
   },
   "dependencies": {
     "@sindresorhus/fnv1a": "^3.0.0",
-    "@vueuse/core": "^14.3.0",
+    "@vueuse/core": "^14.4.0",
     "dot-prop": "10.x.x",
     "luxon": "3.x.x",
     "neverthrow": "^8.0.0",
     "object-hash": "^3.0.0",
-    "vue": "^3.5.40"
+    "vue": "^3.5.41"
   },
   "devDependencies": {
-    "@types/luxon": "^3.7.2",
+    "@types/luxon": "^3.7.4",
     "@types/node": "^20.0.0",
     "@types/object-hash": "^3.0.0",
-    "esbuild": "^0.28.1",
+    "esbuild": "^0.28.2",
     "typescript": "^6.0.3",
-    "tsx": "^4.23.1",
+    "tsx": "^4.23.12",
     "vitest": "^4.1.10"
   }
 }

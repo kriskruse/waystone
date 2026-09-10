@@ -59,6 +59,12 @@ separator { background: #22211b; min-height: 1px; }
 """
 
 
+def _default_pos(mon_w: int) -> tuple[int, int]:
+    """Centered-ish panel default on a monitor of width mon_w (width unknown
+    pre-layout, so eyeball ~760px)."""
+    return (max(0, mon_w // 2 - 380), 80)
+
+
 def _esc(s) -> str:
     return GLib.markup_escape_text(str(s))
 
@@ -226,10 +232,23 @@ class OverlayPanel:
         LayerShell.set_keyboard_mode(self._win, LayerShell.KeyboardMode.NONE)
 
         # Always anchor TOP+LEFT and position via margins so the panel is draggable.
-        mon_w, _mon_h = draggable.monitor_geometry()
+        # Follow the game: attach this surface to the monitor showing a game
+        # window (when the game is already running at startup) so saved margins
+        # are read relative to THAT monitor's origin, not gtk-layer-shell's
+        # default one. The per-present re-attach in _present chases the game
+        # between monitors.
+        self._game_class = cfg.get("game_window_class", "")
+        target = draggable.game_window_monitor(self._game_class)
+        gdkm = draggable.attach_monitor(self._win, target.get("name") if target else None)
         saved = positions.get("panel") if positions is not None else None
-        # Centered-ish default: width unknown pre-show, so eyeball ~760px wide.
-        self._pos = saved if saved is not None else (max(0, mon_w // 2 - 380), 80)
+        if gdkm is not None:
+            geo = gdkm.get_geometry()
+            self._pos = draggable.position_on_monitor(saved, geo.width, geo.height, _default_pos)
+        else:
+            # No game monitor (game not running, or resolution failed): union-
+            # wide default placement as before.
+            mon_w, _mon_h = draggable.monitor_geometry()
+            self._pos = saved if saved is not None else _default_pos(mon_w)
         draggable.anchor_top_left(self._win, *self._pos)
         # No fixed default size: the layer-shell surface sizes to its content.
         # Price view keeps the listings column usable via the scroll's min
@@ -692,6 +711,18 @@ class OverlayPanel:
             self._on_visibility(False)
 
     def _present(self):
+        # Follow the game across monitors: re-attach on every present (the game
+        # may have moved since the last lookup). Margins are read relative to
+        # the target monitor's origin; saved margins are kept when they fit,
+        # else defaulted onto that monitor. Failure to resolve keeps the
+        # current monitor and position.
+        target = draggable.game_window_monitor(self._game_class)
+        gdkm = draggable.attach_monitor(self._win, target.get("name") if target else None)
+        if gdkm is not None:
+            geo = gdkm.get_geometry()
+            self._pos = draggable.position_on_monitor(
+                self._pos, geo.width, geo.height, _default_pos
+            )
         # ON_DEMAND, not EXCLUSIVE: the exclusive grab seized the whole seat —
         # it blocked typing on other monitors and starved the sibling LoginBox
         # surface of pointer input. Cost: Esc needs one click on the panel

@@ -26,12 +26,18 @@ from . import draggable
 _LOG = logging.getLogger("waystone.league")
 
 
+def _default_pos(mon_w: int) -> tuple[int, int]:
+    return (int(mon_w * 0.25), 0)
+
+
 class LeagueBox:
-    def __init__(self, app: Gtk.Application, current_league: str, on_change, positions=None):
+    def __init__(self, app: Gtk.Application, current_league: str, on_change,
+                 positions=None, game_class: str = ""):
         self._on_change = on_change
         self._positions = positions
         self._names = [current_league]
         self._current = current_league
+        self._game_class = game_class
 
         self._win = Gtk.Window(application=app)
         LayerShell.init_for_window(self._win)
@@ -40,7 +46,14 @@ class LeagueBox:
 
         mon_w, _mon_h = draggable.monitor_geometry()
         saved = positions.get("league") if positions is not None else None
-        self._pos = saved if saved is not None else (int(mon_w * 0.25), 0)
+        self._pos = saved if saved is not None else _default_pos(mon_w)
+        # Follow the game like the panel (margins are relative to the attached
+        # monitor's origin); set_visible re-attaches on every show.
+        target = draggable.game_window_monitor(self._game_class)
+        gdkm = draggable.attach_monitor(self._win, target.get("name") if target else None)
+        if gdkm is not None:
+            geo = gdkm.get_geometry()
+            self._pos = draggable.position_on_monitor(saved, geo.width, geo.height, _default_pos)
         draggable.anchor_top_left(self._win, *self._pos)
 
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
@@ -87,6 +100,13 @@ class LeagueBox:
 
     def set_visible(self, visible: bool) -> None:
         if visible:
+            target = draggable.game_window_monitor(self._game_class)
+            gdkm = draggable.attach_monitor(self._win, target.get("name") if target else None)
+            if gdkm is not None:
+                geo = gdkm.get_geometry()
+                self._pos = draggable.position_on_monitor(
+                    self._pos, geo.width, geo.height, _default_pos
+                )
             self._win.present()
             draggable.set_position(self._win, *self._pos)
         else:

@@ -27,7 +27,7 @@ from poed import sessid as sessid_mod
 from poed.badges import BadgeLayer
 from poed import brain as brain_module
 from poed.brain import Brain
-from poed import hyprbind
+from poed import draggable
 from poed import uniquescan
 from poed.hyprbind import EscBind, MultiBindManager
 from poed.leaguebox import LeagueBox
@@ -274,7 +274,12 @@ class App:
             )
             t_rows = time.monotonic()
             rows = uniquescan.filter_rows(rows, self.cfg["unique_scan_min_price"])
-            output = hyprbind.active_game_output()
+            # Scan the GAME's monitor (the window tracking on the Alt+X bind
+            # guarantees one exists), not the focused window's — poed may hold
+            # focus after a price look-up, and active_game_output() would then
+            # screenshot the panel's own monitor.
+            target = draggable.game_window_monitor(self.cfg["game_window_class"])
+            output = target.get("name") if target else None
             if output is None:
                 GLib.idle_add(self._deliver_error, gen, "no active monitor found")
                 return
@@ -304,7 +309,8 @@ class App:
             on_visibility=self.on_visibility, positions=self.positions,
         )
         loginbox = LoginBox(
-            application, self.on_login, self.on_logout, positions=self.positions
+            application, self.on_login, self.on_logout, positions=self.positions,
+            game_class=self.cfg["game_window_class"],
         )
         self.loginbox = loginbox
         self.panel.attach_loginbox(loginbox)
@@ -313,7 +319,7 @@ class App:
         self.resume_login()
         leaguebox = LeagueBox(
             application, self.cfg["league"], self.on_league_changed,
-            positions=self.positions,
+            positions=self.positions, game_class=self.cfg["game_window_class"],
         )
         self.leaguebox = leaguebox
         self.panel.attach_leaguebox(leaguebox)

@@ -97,6 +97,134 @@ def monitor_origin_at(gx: int, gy: int) -> tuple[int, int]:
     return (0, 0)
 
 
+def _monitors_json(raw: str) -> list[dict]:
+    """Parse `hyprctl monitors -j` into {id,x,y,width,height,name} dicts; []
+    on garbage."""
+    try:
+        data = json.loads(raw)
+    except (ValueError, TypeError):
+        return []
+    if not isinstance(data, list):
+        return []
+    return [
+        {
+            "id": m.get("id"), "x": m.get("x"), "y": m.get("y"),
+            "width": m.get("width"), "height": m.get("height"),
+            "name": m.get("name"),
+        }
+        for m in data if isinstance(m, dict)
+    ]
+
+
+def _monitor_by_id(mons: list[dict], mid) -> dict | None:
+    """Monitor dict whose id == mid from a _monitors_json list; None when absent."""
+    if mid is None:
+        return None
+    for m in mons:
+        if m.get("id") == mid:
+            return m
+    return None
+
+
+def _game_window_mid(raw_active: str, raw_clients: str, game_class: str) -> int | None:
+    """Monitor id of a game window from raw hyprctl json.
+
+    Prefers the focused window when its class matches the game (price-check
+    demands game focus anyway), else the first matching game client (unique-
+    scan screenshots without focus). None when nothing matches.
+    """
+    try:
+        active = json.loads(raw_active)
+    except (ValueError, TypeError):
+        active = None
+    if isinstance(active, dict) and active.get("class") == game_class:
+        mid = active.get("monitor")
+        if mid is not None:
+            return mid
+    try:
+        clients = json.loads(raw_clients)
+    except (ValueError, TypeError):
+        clients = None
+    if isinstance(clients, list):
+        for c in clients:
+            if isinstance(c, dict) and c.get("class") == game_class:
+                return c.get("monitor")
+    return None
+
+
+def game_window_monitor(game_class: str) -> dict | None:
+    """Compositor monitor {name,x,y,width,height} showing a game window.
+
+    The overlay chases this monitor so the panel renders on the same screen as
+    the game instead of gtk-layer-shell's default one. None on any failure,
+    letting callers keep their previous (union/default) placement.
+    """
+    try:
+        raw_active = subprocess.run(
+            ["hyprctl", "activewindow", "-j"],
+            capture_output=True, text=True, timeout=0.5,
+        ).stdout
+        raw_clients = subprocess.run(
+            ["hyprctl", "clients", "-j"],
+            capture_output=True, text=True, timeout=0.5,
+        ).stdout
+        raw_mons = subprocess.run(
+            ["hyprctl", "monitors", "-j"],
+            capture_output=True, text=True, timeout=0.5,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    mid = _game_window_mid(raw_active, raw_clients, game_class)
+    if mid is None:
+        return None
+    return _monitor_by_id(_monitors_json(raw_mons), mid)
+
+
+def gdk_monitor_by_name(name: str) -> Gdk.Monitor | None:
+    """Gdk monitor whose connector matches `name` (a Hyprland monitor name);
+    None when headless (tests) or the name isn't on this display."""
+    display = Gdk.Display.get_default()
+    if display is None:
+        return None
+    mons = display.get_monitors()
+    for i in range(mons.get_n_items()):
+        mon = mons.get_item(i)
+        if mon is None:
+            continue
+        if mon.get_connector() == name:
+            return mon
+    return None
+
+
+def attach_monitor(win, name: str | None) -> Gdk.Monitor | None:
+    """Attach `win` to the monitor named `name`; returns its Gdk.Monitor or None.
+
+    None means the name is unknown to the running display (or headless) and the
+    surface stays on gtk-layer-shell's default monitor. The returned monitor
+    lets callers read its geometry for margin placement.
+    """
+    if not name:
+        return None
+    mon = gdk_monitor_by_name(name)
+    if mon is not None:
+        LayerShell.set_monitor(win, mon)
+    return mon
+
+
+def position_on_monitor(saved, mon_w, mon_h, fallback) -> tuple[int, int]:
+    """Margins for a surface on a monitor of (mon_w, mon_h).
+
+    `saved` margins win when they fit inside the monitor — layer-shell margins
+    are relative to the ATTACHED monitor's origin, so the same numbers mean the
+    same spot on every monitor. A monitor switch must never leave the surface
+    parked at stale margins off-screen, so non-fitting saved margins fall back
+    to `fallback(mon_w)` (a per-widget default, e.g. centered).
+    """
+    if saved is not None and 0 <= saved[0] < mon_w and 0 <= saved[1] < mon_h:
+        return int(saved[0]), int(saved[1])
+    return fallback(int(mon_w))
+
+
 def clamp_position(x, y, mon_w, mon_h, win_w, win_h):
     """Keep a window fully on-screen; window-larger-than-monitor pins to 0."""
     max_x = max(0, mon_w - win_w)

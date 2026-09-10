@@ -22,12 +22,18 @@ from . import draggable
 _LOG = logging.getLogger("waystone.login")
 
 
+def _default_pos(mon_w: int) -> tuple[int, int]:
+    return (int(mon_w * 0.35), 0)
+
+
 class LoginBox:
-    def __init__(self, app: Gtk.Application, on_login, on_logout, positions=None):
+    def __init__(self, app: Gtk.Application, on_login, on_logout, positions=None,
+                 game_class: str = ""):
         self._on_login = on_login
         self._on_logout = on_logout
         self._mode = "anonymous"  # "anonymous" | "logged_in" (button label source)
         self._positions = positions
+        self._game_class = game_class
 
         self._win = Gtk.Window(application=app)
         LayerShell.init_for_window(self._win)
@@ -38,7 +44,14 @@ class LoginBox:
         mon_w, _mon_h = draggable.monitor_geometry()
         # Saved position wins; first run falls back to ~35% across the monitor.
         saved = positions.get("login") if positions is not None else None
-        self._pos = saved if saved is not None else (int(mon_w * 0.35), 0)
+        self._pos = saved if saved is not None else _default_pos(mon_w)
+        # Follow the game like the panel (margins are relative to the attached
+        # monitor's origin); set_visible re-attaches on every show.
+        target = draggable.game_window_monitor(self._game_class)
+        gdkm = draggable.attach_monitor(self._win, target.get("name") if target else None)
+        if gdkm is not None:
+            geo = gdkm.get_geometry()
+            self._pos = draggable.position_on_monitor(saved, geo.width, geo.height, _default_pos)
         draggable.anchor_top_left(self._win, *self._pos)
 
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
@@ -95,6 +108,13 @@ class LoginBox:
 
     def set_visible(self, visible: bool) -> None:
         if visible:
+            target = draggable.game_window_monitor(self._game_class)
+            gdkm = draggable.attach_monitor(self._win, target.get("name") if target else None)
+            if gdkm is not None:
+                geo = gdkm.get_geometry()
+                self._pos = draggable.position_on_monitor(
+                    self._pos, geo.width, geo.height, _default_pos
+                )
             self._win.present()
             draggable.set_position(self._win, *self._pos)
         else:

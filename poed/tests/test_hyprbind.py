@@ -1,4 +1,10 @@
+from poed import hyprbind as hb
 from poed.hyprbind import BindManager, EscBind, _norm, resolve_shortcut_name
+
+# Existing tests assert exact `hyprctl keyword` command tuples. Pinning the
+# provider makes them deterministic regardless of the host compositor;
+# Lua-provider behaviour is covered by dedicated tests below.
+hb._PROVIDER = "hyprlang"
 
 
 class FakeCtl:
@@ -232,8 +238,7 @@ def test_escbind_stop_is_hide():
 
 def test_multi_bind_manager_binds_and_unbinds_all():
     ctl = FakeCtl()
-    from poed.hyprbind import MultiBindManager
-    mgr = MultiBindManager.create(
+    mgr = hb.MultiBindManager.create(
         "steam_app_2694490",
         [("ALT", "Z", "price-check"), ("ALT", "X", "unique-scan")],
         _ctl=ctl, _resolve=_resolved,
@@ -251,3 +256,54 @@ def test_multi_bind_manager_binds_and_unbinds_all():
     mgr.handle_line("openwindow>>abc123,1,steam_app_2694490,PoE2")
     mgr.stop()
     assert {a[2] for a in ctl.calls if a[1] == "unbind"} == {"ALT,Z", "ALT,X"}
+
+
+# --- Lua config provider -----------------------------------------------------
+
+def test_detect_provider(tmp_path):
+    assert hb._detect_provider(str(tmp_path)) == "hyprlang"
+    (tmp_path / "hyprland.lua").write_text("-- omarchy\n")
+    assert hb._detect_provider(str(tmp_path)) == "lua"
+
+
+def test_lua_keys_formatting():
+    assert hb._lua_keys("CTRL", "D") == "CTRL + D"
+    assert hb._lua_keys("CTRL_ALT", "Z") == "CTRL + ALT + Z"
+    assert hb._lua_keys("", "Escape") == "Escape"
+
+
+def test_lua_provider_command_strings(monkeypatch):
+    monkeypatch.setattr(hb, "_PROVIDER", "lua")
+    assert hb._bind_cmd("xdg-terminal-exec:price-check", "CTRL", "D") == (
+        "eval", 'hl.bind("CTRL + D", hl.dsp.global("xdg-terminal-exec:price-check"))'
+    )
+    assert hb._unbind_cmd("ALT", "Z") == ("eval", 'hl.unbind("ALT + Z")')
+    assert hb._esc_bind_cmd("xdg-terminal-exec:panel-close") == (
+        "eval", 'hl.bind("Escape", hl.dsp.global("xdg-terminal-exec:panel-close"))'
+    )
+    assert hb._esc_unbind_cmd() == ("eval", 'hl.unbind("Escape")')
+
+
+def test_lua_provider_integration(monkeypatch):
+    monkeypatch.setattr(hb, "_PROVIDER", "lua")
+    ctl = FakeCtl()
+    m = BindManager("steam_app_2694490", "CTRL", "D", "price-check",
+                    _ctl=ctl, _resolve=_resolved)
+    m.handle_line("openwindow>>1,1,steam_app_2694490,t")
+    assert ctl.calls[-1] == (
+        "eval", 'hl.bind("CTRL + D", hl.dsp.global("xdg-terminal-exec:price-check"))'
+    )
+    m.handle_line("closewindow>>1")
+    assert ctl.calls[-1] == ("eval", 'hl.unbind("CTRL + D")')
+
+
+def test_escbind_lua_provider(monkeypatch):
+    monkeypatch.setattr(hb, "_PROVIDER", "lua")
+    ctl = FakeCtl()
+    e = EscBind("panel-close", _ctl=ctl, _resolve=_resolved)
+    e.show()
+    assert ctl.calls[-1] == (
+        "eval", 'hl.bind("Escape", hl.dsp.global("xdg-terminal-exec:panel-close"))'
+    )
+    e.hide()
+    assert ctl.calls[-1] == ("eval", 'hl.unbind("Escape")')

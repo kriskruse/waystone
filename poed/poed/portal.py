@@ -153,6 +153,7 @@ class GlobalShortcuts:
         options = {
             "handle_token": GLib.Variant("s", token),
             "session_handle_token": GLib.Variant("s", _token()),
+            "app_id": GLib.Variant("s", self.app_id),
         }
         params = GLib.Variant("(a{sv})", (options,))
         self._call_with_request(

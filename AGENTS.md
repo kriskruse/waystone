@@ -13,7 +13,7 @@ Rule of thumb: if it touches the compositor, portal, clipboard, or pixels → Py
 
 ## Flow
 
-Hotkey (`Alt+Z`, dynamically bound/unbound via `hyprctl keyword` while PoE2 window exists) → portal `Activated` → focused-window guard (`hyprctl activewindow`) → inject Ctrl+C → `wl-paste` → `{"cmd": "price", "clipboard": ...}` to brain → ParsedItem → brain auto-detects currency (`BaseType.tradeTag`) and returns `kind: "currency"` (exchange rates + stack value) or `kind: "price"` (listings) → layer-shell panel. Panel stays open until Esc; hotkey while open re-looks up the hovered item.
+Hotkey (`Alt+Z`, dynamically bound/unbound while PoE2 window exists — via `hyprctl eval 'hl.bind(...)'` on Lua-config systems, `hyprctl keyword bind` on hyprlang) → portal `Activated` → focused-window guard (`hyprctl activewindow`) → inject Ctrl+C → `wl-paste` → `{"cmd": "price", "clipboard": ...}` to brain → ParsedItem → brain auto-detects currency (`BaseType.tradeTag`) and returns `kind: "currency"` (exchange rates + stack value) or `kind: "price"` (listings) → layer-shell panel. Panel stays open until Esc; hotkey while open re-looks up the hovered item.
 
 ## Key constraints
 
